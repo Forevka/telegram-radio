@@ -30,7 +30,7 @@ FFMPEG_PROCESSES = {}
 
 @pyro_client.on_message(admin & filters.command('start', prefixes='!'))
 async def start(client, message: Message):
-    if not message.reply_to_message or len(message.command) < 3:
+    if len(message.command) < 3:
         await message.reply_text('!start @group_username https://link-to-stream/')
         return
 
@@ -65,7 +65,7 @@ async def start(client, message: Message):
 
 @pyro_client.on_message(admin & filters.command('stop', prefixes='!'))
 async def stop(_, message: Message):
-    if not message.reply_to_message or len(message.command) < 2:
+    if len(message.command) < 2:
         await message.reply_text('!stop @group_username')
         return
 
