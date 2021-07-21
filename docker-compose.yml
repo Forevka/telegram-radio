@@ -1,0 +1,9 @@
+version: "3"
+
+services:
+  tg-radio:
+    build:
+      context: .
+    env_file:
+    - ./.env
+    command: ["python3", "radio.py"]
