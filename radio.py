@@ -5,6 +5,7 @@ from pyrogram import Client, filters
 import pyrogram
 from pyrogram.types import Message
 from pytgcalls import GroupCallFactory
+from pyrogram.raw import functions
 
 from config import ADMINS, API_HASH, API_ID, SESSION_NAME
 
@@ -16,8 +17,6 @@ pyro_client = Client(
     api_id=API_ID,
 )
 
-# Commands available only for anonymous admins
-
 
 async def admin_filter(_, __, m: Message):
     return m.from_user.id in ADMINS
@@ -27,6 +26,11 @@ admin = filters.create(admin_filter)
 
 GROUP_CALLS = {}
 FFMPEG_PROCESSES = {}
+
+
+@pyro_client.on_message(admin & filters.command('dc', prefixes='!'))
+async def get_dc(client: Client, message: Message):
+    await message.reply_text(f'dc {await client.storage.dc_id()}')
 
 
 @pyro_client.on_message(admin & filters.command('start', prefixes='!'))
