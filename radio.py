@@ -2,6 +2,7 @@ import signal
 
 import ffmpeg
 from pyrogram import Client, filters
+import pyrogram
 from pyrogram.types import Message
 from pytgcalls import GroupCallFactory
 
@@ -34,7 +35,14 @@ async def start(client, message: Message):
         await message.reply_text('!start @group_username https://link-to-stream/')
         return
 
-    group_id = await pyro_client.get_chat(message.command[1].replace('@', ''))
+    group = None
+    try:
+        group = await pyro_client.get_chat(message.command[1].replace('@', ''))
+    except pyrogram.errors.exceptions.bad_request_400.UsernameInvalid:
+        await message.reply_text(f'can''t resolve this username')
+
+
+    group_id = group.id
 
     input_filename = f'stations/radio-{group_id}.raw'
 
@@ -69,7 +77,13 @@ async def stop(_, message: Message):
         await message.reply_text('!stop @group_username')
         return
 
-    group_id = await pyro_client.get_chat(message.command[1].replace('@', ''))
+    group = None
+    try:
+        group = await pyro_client.get_chat(message.command[1].replace('@', ''))
+    except pyrogram.errors.exceptions.bad_request_400.UsernameInvalid:
+        await message.reply_text(f'can''t resolve this username')
+
+    group_id = group.id
 
     group_call = GROUP_CALLS.get(group_id)
     if group_call:
