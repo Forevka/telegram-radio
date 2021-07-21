@@ -5,5 +5,7 @@ services:
     build:
       context: .
     env_file:
-    - ./.env
+        - ./.env
+    volumes:
+        - /root/tgsessions:/sessions
     command: ["python3", "radio.py"]
