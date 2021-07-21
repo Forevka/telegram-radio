@@ -22,7 +22,7 @@ CLIENT_TYPE = GroupCallFactory.MTPROTO_CLIENT_TYPE.PYROGRAM
 
 
 pyro_client = Client(
-    'pytgcalls',
+    'sessions/pytgcalls',
     api_hash=os.environ.get('API_HASH', ''),
     api_id=os.environ.get('API_ID', 0),
 )
