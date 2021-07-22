@@ -2,3 +2,6 @@ ffmpeg-python
 pyrogram
 pytgcalls[pyrogram]
 tgcrypto
+aiohttp
+idna
+chardet

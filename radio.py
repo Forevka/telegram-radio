@@ -1,3 +1,5 @@
+from plaza_metadata import fetch_plaza_metadata
+from base_radio import BaseRadio, PeriodicFetchMetadataRadio, radio_holder
 import signal
 
 import ffmpeg
@@ -5,7 +7,8 @@ from pyrogram import Client, filters
 import pyrogram
 from pyrogram.types import Message
 from pytgcalls import GroupCallFactory
-from pyrogram.raw import functions
+from pyrogram.raw.functions.channels import GetFullChannel
+from pyrogram.raw.functions.phone import EditGroupCallTitle
 
 from config import ADMINS, API_HASH, API_ID, SESSION_NAME
 
@@ -24,14 +27,22 @@ async def admin_filter(_, __, m: Message):
 
 admin = filters.create(admin_filter)
 
-GROUP_CALLS = {}
-FFMPEG_PROCESSES = {}
-
 
 @pyro_client.on_message(admin & filters.command('dc', prefixes='!'))
 async def get_dc(client: Client, message: Message):
     await message.reply_text(f'dc {await client.storage.dc_id()}')
 
+
+@pyro_client.on_message(admin & filters.command('ct', prefixes='!'))
+async def change_name(client, message: Message):
+    if len(message.command) < 3:
+        await message.reply_text('!ct @group_username name')
+        return
+
+    peer = await client.resolve_peer(message.command[1].replace('@', ''))
+    chat = await client.send(GetFullChannel(channel=peer))
+    data = EditGroupCallTitle(call=chat.full_chat.call, title=message.command[2])
+    await client.send(data)
 
 @pyro_client.on_message(admin & filters.command('start', prefixes='!'))
 async def start(client, message: Message):
@@ -45,34 +56,40 @@ async def start(client, message: Message):
     except pyrogram.errors.exceptions.bad_request_400.UsernameInvalid:
         await message.reply_text(f'can''t resolve this username')
 
+    stream_url = message.command[2].strip()
 
-    group_id = group.id
+    group_radio = radio_holder.get_radio(group.id)
+    if group_radio is None or not group_radio.is_streaming:
+        if ('plaza.one' in stream_url):
+            group_radio = PeriodicFetchMetadataRadio(
+                stream_url, 
+                group.id, 
+                GroupCallFactory(
+                    client, 
+                    path_to_log_file=''
+                ),
+                5,
+                fetch_plaza_metadata,
+            )
+        else:
+            group_radio = BaseRadio(
+                stream_url, 
+                group.id, 
+                GroupCallFactory(
+                    client, 
+                    path_to_log_file=''
+                )
+            )
 
-    input_filename = f'stations/radio-{group_id}.raw'
+        radio_holder.add_radio(group_radio)
 
-    group_call = GROUP_CALLS.get(group_id)
-    if group_call is None:
-        group_call = GroupCallFactory(
-            client, path_to_log_file='').get_file_group_call(input_filename)
-        GROUP_CALLS[group_id] = group_call
+    if (group_radio.is_streaming):
+        await message.reply_text(f'Radio for {group.id} already playing')
+        return
 
-    process = FFMPEG_PROCESSES.get(group_id)
-    if process:
-        process.send_signal(signal.SIGTERM)
+    await group_radio.start()
 
-    station_stream_url = message.command[2].strip()
-
-    await group_call.start(group_id)
-
-    process = (
-        ffmpeg.input(station_stream_url)
-        .output(input_filename, format='s16le', acodec='pcm_s16le', ac=2, ar='48k')
-        .overwrite_output()
-        .run_async()
-    )
-    FFMPEG_PROCESSES[group_id] = process
-
-    await message.reply_text(f'Radio for {group_id} with {station_stream_url} is playing...')
+    await message.reply_text(f'Radio for {group.id} with {group_radio.url} is playing...')
 
 
 @pyro_client.on_message(admin & filters.command('stop', prefixes='!'))
@@ -87,15 +104,14 @@ async def stop(_, message: Message):
     except pyrogram.errors.exceptions.bad_request_400.UsernameInvalid:
         await message.reply_text(f'can''t resolve this username')
 
-    group_id = group.id
+    group_radio = radio_holder.get_radio(group.id)
+    if group_radio is None or not group_radio.is_streaming:
+        await message.reply_text(f'Radio for {group.id} are not playing.')
+        return
+    
+    await group_radio.stop()
+    await message.reply_text(f'Radio for {group.id} stopped')
 
-    group_call = GROUP_CALLS.get(group_id)
-    if group_call:
-        await group_call.stop()
-
-    process = FFMPEG_PROCESSES.get(group_id)
-    if process:
-        process.send_signal(signal.SIGTERM)
 
 
 if __name__ == '__main__':
